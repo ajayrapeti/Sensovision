@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Sensovision</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #0b1020;
+        --panel: #11162b;
+        --text: #e5e7eb;
+        --muted: #94a3b8;
+        --primary: #7c3aed;
+        --accent: #06b6d4;
+        --border: #1f2937;
+      }
+      * { box-sizing: border-box; }
+      body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 0; padding: 24px; background: radial-gradient(1200px 800px at 10% 0%, #0f172a 0%, #0b1020 40%, #070b16 100%); color: var(--text); }
+      header { display:flex; align-items:center; justify-content:space-between; margin-bottom: 16px; }
+      h1 { margin: 0; letter-spacing: 0.5px; font-weight: 700; }
+      .brand { display:flex; gap:10px; align-items:center; }
+      .logo { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, var(--primary), var(--accent)); box-shadow: 0 10px 30px rgba(124,58,237,.4); }
+      .wrap { display: grid; grid-template-columns: 1fr 380px; gap: 24px; align-items: start; }
+      video, canvas { width: 100%; max-width: 960px; border-radius: 12px; background: #000; box-shadow: 0 10px 40px rgba(0,0,0,.4); }
+      .panel { border: 1px solid var(--border); border-radius: 16px; padding: 16px; background: linear-gradient(180deg, rgba(17,22,43,0.85), rgba(11,16,32,0.85)); backdrop-filter: blur(6px); box-shadow: 0 8px 30px rgba(0,0,0,.35); }
+      .row { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; flex-wrap: wrap; }
+      .row label { font-size: 12px; color: var(--muted); }
+      .grid { display:grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap:10px; }
+      button { padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); background: linear-gradient(180deg, #141a33, #0f152b); color: #fff; cursor: pointer; box-shadow: inset 0 1px 0 rgba(255,255,255,.06); }
+      button:hover { filter: brightness(1.1); }
+      button[disabled] { opacity: .45; cursor: not-allowed; }
+      select, input { background: #0e1428; color: var(--text); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+      pre { white-space: pre-wrap; word-break: break-word; background: #0b1020; color: #e5e7eb; padding: 12px; border-radius: 12px; border:1px solid #0f172a; }
+      .badge { display:inline-block; padding: 4px 10px; border-radius: 999px; background: rgba(124,58,237,.15); color: #c4b5fd; font-size: 12px; border:1px solid rgba(124,58,237,.25) }
+      .muted { color: var(--muted); font-size: 12px; }
+      .section-title { margin: 8px 0 6px; font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <div class="brand">
+        <div class="logo"></div>
+        <h1>Sensovision</h1>
+      </div>
+      <div>
+        <span id="status" class="badge">idle</span>
+      </div>
+    </header>
+    <div class="wrap">
+      <div>
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas" hidden></canvas>
+        <div style="margin-top:12px">
+          <strong>Annotated:</strong>
+          <img id="annotated" style="width:100%; max-width:800px; border-radius:8px;" />
+        </div>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <button id="startBtn">Start</button>
+          <button id="stopBtn" disabled>Stop</button>
+          <button id="resetBtn" disabled>Reset Stats</button>
+          <select id="interval" title="Send frequency">
+            <option value="500">0.5s</option>
+            <option value="1000" selected>1s</option>
+            <option value="2000">2s</option>
+          </select>
+          <select id="mode" title="Mode">
+            <option value="interview" selected>Interview</option>
+            <option value="student">Student</option>
+            <option value="detective">Detective</option>
+          </select>
+          <label><input type="checkbox" id="blurFaces" /> Blur faces</label>
+        </div>
+        <div class="grid">
+          <div>
+            <div class="section-title">Dominant</div>
+            <div id="dominant" style="font-size:20px; font-weight:700;">-</div>
+            <div class="muted">Faces: <span id="faceCount">0</span> • Mode: <span id="modeEcho">default</span></div>
+          </div>
+          <div>
+            <div class="section-title">Performance</div>
+            <div class="muted">Latency: <span id="latency">-</span> ms • FPS: <span id="fps">-</span></div>
+          </div>
+        </div>
+        <div class="section-title">Emotions</div>
+        <pre id="json">{}</pre>
+        <div class="section-title">Rolling Average (Session)</div>
+        <pre id="avg">{}</pre>
+        <div class="section-title">Export</div>
+        <div class="row">
+          <button id="exportJson">Download JSON</button>
+          <button id="exportCsv">Download CSV</button>
+        </div>
+        <div class="section-title">Settings</div>
+        <div class="grid">
+          <label>Max side <input id="maxSide" type="number" value="640" min="256" max="1280" /></label>
+          <label>JPEG quality <input id="quality" type="number" value="80" min="30" max="95" /></label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="autoSend" checked /> Auto send</label>
+          <button id="snapBtn">Snapshot</button>
+          <button id="themeBtn">Toggle Theme</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const video = document.getElementById('video');
+      const canvas = document.getElementById('canvas');
+      const startBtn = document.getElementById('startBtn');
+      const stopBtn = document.getElementById('stopBtn');
+      const statusEl = document.getElementById('status');
+      const dominantEl = document.getElementById('dominant');
+      const jsonEl = document.getElementById('json');
+      const intervalSel = document.getElementById('interval');
+      const annotatedImg = document.getElementById('annotated');
+      const avgEl = document.getElementById('avg');
+      const resetBtn = document.getElementById('resetBtn');
+      const modeSel = document.getElementById('mode');
+      const modeEcho = document.getElementById('modeEcho');
+      const faceCountEl = document.getElementById('faceCount');
+      const latencyEl = document.getElementById('latency');
+      const fpsEl = document.getElementById('fps');
+      const exportJson = document.getElementById('exportJson');
+      const exportCsv = document.getElementById('exportCsv');
+      const maxSideInput = document.getElementById('maxSide');
+      const qualityInput = document.getElementById('quality');
+      const autoSend = document.getElementById('autoSend');
+      const snapBtn = document.getElementById('snapBtn');
+      const themeBtn = document.getElementById('themeBtn');
+      const blurFaces = document.getElementById('blurFaces');
+
+      let timer = null;
+
+      async function getStream() {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+        video.srcObject = stream;
+        await new Promise(r => video.onloadedmetadata = r);
+      }
+
+      function snapshotDataURL() {
+        const w = video.videoWidth;
+        const h = video.videoHeight;
+        if (!w || !h) return null;
+        // downscale client-side for faster upload
+        const maxSide = 640;
+        const scale = Math.min(1, maxSide / Math.max(w, h));
+        const tw = Math.round(w * scale);
+        const th = Math.round(h * scale);
+        canvas.width = tw; canvas.height = th;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, tw, th);
+        return canvas.toDataURL('image/jpeg', 0.8);
+      }
+
+      let lastTick = performance.now();
+      async function analyzeOnce() {
+        try {
+          const dataURL = snapshotDataURL();
+          if (!dataURL) return;
+          statusEl.textContent = 'analyzing…';
+          const t0 = performance.now();
+          const res = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              image: dataURL, 
+              session_id: sessionStorage.getItem('sensovision_session') || (sessionStorage.setItem('sensovision_session', crypto.randomUUID()), sessionStorage.getItem('sensovision_session')),
+              mode: modeSel.value,
+              max_side: Number(maxSideInput.value)||640,
+              jpeg_quality: Number(qualityInput.value)||80,
+              blur_faces: blurFaces.checked,
+            })
+          });
+      // Persist settings
+      const SETTINGS_KEYS = ['interval','mode','maxSide','quality','autoSend','blurFaces'];
+      function loadSettings(){
+        SETTINGS_KEYS.forEach(k=>{
+          const v = localStorage.getItem('sv_'+k);
+          if (v == null) return;
+          if (k==='autoSend' || k==='blurFaces') document.getElementById(k).checked = v==='1';
+          else if (k==='interval' || k==='mode') document.getElementById(k).value = v;
+          else document.getElementById(k).value = Number(v);
+        });
+        // default to Interview if mode missing/invalid
+        if (!['interview','student','detective'].includes(modeSel.value)) {
+          modeSel.value = 'interview';
+        }
+        modeEcho.textContent = modeSel.value;
+      }
+      function saveSetting(k, v){ localStorage.setItem('sv_'+k, v); }
+      [intervalSel, modeSel, maxSideInput, qualityInput].forEach(el=> el.addEventListener('change', ()=>saveSetting(el.id, el.value)));
+      [autoSend, blurFaces].forEach(el=> el.addEventListener('change', ()=>saveSetting(el.id, el.checked?'1':'0')));
+      loadSettings();
+
+      // Emotion alert: beep if angry > 60%
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      function beep(){
+        const o = ctx.createOscillator();
+        const g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.frequency.value = 880; o.type = 'sine';
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.2, ctx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.25);
+        o.start(); o.stop(ctx.currentTime + 0.26);
+      }
+          const payload = await res.json();
+          if (!res.ok) {
+            if (res.status === 429) throw new Error('Rate limited, backing off…');
+            throw new Error(payload.error || 'Request failed');
+          }
+          dominantEl.textContent = payload.dominant_emotion || '-';
+          jsonEl.textContent = JSON.stringify(payload.emotions || {}, null, 2);
+          avgEl.textContent = JSON.stringify(payload.rolling_average_session || payload.rolling_average || {}, null, 2);
+          if (payload.annotated_image) {
+            annotatedImg.src = payload.annotated_image;
+          }
+          faceCountEl.textContent = String(payload.face_count || 0);
+          modeEcho.textContent = String(payload.mode || modeSel.value);
+          const t1 = performance.now();
+          latencyEl.textContent = Math.round(t1 - t0);
+          const fpsNow = 1000 / (t1 - lastTick);
+          fpsEl.textContent = isFinite(fpsNow) ? Math.round(fpsNow) : '-';
+          lastTick = t1;
+          // Alert if angry over 60%
+          if ((payload.emotions?.angry || 0) > 60) beep();
+          statusEl.textContent = 'ready';
+        } catch (e) {
+          statusEl.textContent = 'error';
+          jsonEl.textContent = String(e);
+        }
+      }
+
+      startBtn.addEventListener('click', async () => {
+        startBtn.disabled = true;
+        try {
+          await getStream();
+          statusEl.textContent = 'streaming';
+          const ms = Number(intervalSel.value);
+          await analyzeOnce();
+          timer = setInterval(analyzeOnce, ms);
+          stopBtn.disabled = false;
+        } catch (e) {
+          startBtn.disabled = false;
+          statusEl.textContent = 'error';
+          jsonEl.textContent = String(e);
+        }
+      });
+
+      stopBtn.addEventListener('click', () => {
+        stopBtn.disabled = true;
+        if (timer) clearInterval(timer);
+        const s = video.srcObject; if (s) s.getTracks().forEach(t => t.stop());
+        video.srcObject = null;
+        startBtn.disabled = false;
+        resetBtn.disabled = false;
+        statusEl.textContent = 'idle';
+      });
+
+      resetBtn.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/api/reset', { method: 'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ session_id: sessionStorage.getItem('sensovision_session') }) });
+          if (!res.ok) throw new Error('Reset failed');
+          avgEl.textContent = '{}';
+          statusEl.textContent = 'reset';
+        } catch (e) {
+          statusEl.textContent = 'error';
+          jsonEl.textContent = String(e);
+        }
+      });
+
+      exportJson.addEventListener('click', () => {
+        const sid = sessionStorage.getItem('sensovision_session');
+        window.open(`/api/report/json?session_id=${encodeURIComponent(sid || 'default')}`, '_blank');
+      });
+      exportCsv.addEventListener('click', () => {
+        const sid = sessionStorage.getItem('sensovision_session');
+        window.open(`/api/report/csv?session_id=${encodeURIComponent(sid || 'default')}`, '_blank');
+      });
+
+      modeSel.addEventListener('change', () => {
+        modeEcho.textContent = modeSel.value;
+      });
+
+      snapBtn.addEventListener('click', async () => {
+        if (!autoSend.checked) {
+          await analyzeOnce();
+        }
+      });
+
+      autoSend.addEventListener('change', () => {
+        if (timer) clearInterval(timer);
+        if (autoSend.checked) {
+          const ms = Number(intervalSel.value);
+          timer = setInterval(analyzeOnce, ms);
+        }
+      });
+
+      themeBtn.addEventListener('click', () => {
+        const dark = document.documentElement.style.getPropertyValue('--bg') !== '#ffffff';
+        if (dark) {
+          document.documentElement.style.setProperty('--bg', '#ffffff');
+          document.documentElement.style.setProperty('--panel', '#f8fafc');
+          document.body.style.background = '#ffffff';
+          document.body.style.color = '#0b1020';
+        } else {
+          document.documentElement.style.setProperty('--bg', '#0b1020');
+          document.documentElement.style.setProperty('--panel', '#11162b');
+          document.body.style.background = 'radial-gradient(1200px 800px at 10% 0%, #0f172a 0%, #0b1020 40%, #070b16 100%)';
+          document.body.style.color = '#e5e7eb';
+        }
+      });
+    </script>
+  </body>
+  </html>
+
+
